@@ -1,0 +1,1 @@
+Software Design Patterns class repo for projects
