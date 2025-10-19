@@ -1,40 +1,24 @@
 package src.com.example.interpreter;
 
-/**
- * Minimal Task model.
- */
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+
 public class Task {
-    private final String id;
-    private Department department;
-    private boolean completed = false;
-    private boolean overdue = false;
+    public String name;
+    public String status = "Pending"; // Pending, Assigned, InProgress, Done
+    public String priority = "Medium";
+    public LocalDate due;
+    public Department department;
+    public String assignee;
 
-    public Task(String id, Department department) {
-        this.id = id;
-        this.department = department;
-    }
+    public Task(String name) { this.name = name; }
 
-    public String getId() {
-        return id;
-    }
-
-    public Department getDepartment() {
-        return department;
-    }
-
-    public boolean isCompleted() {
-        return completed;
-    }
-
-    public void markCompleted() {
-        this.completed = true;
+    public long ageDays() {
+        if (due == null) return 0;
+        return ChronoUnit.DAYS.between(due, LocalDate.now());
     }
 
     public boolean isOverdue() {
-        return overdue;
-    }
-
-    public void setOverdue(boolean overdue) {
-        this.overdue = overdue;
+        return due != null && LocalDate.now().isAfter(due) && !"Done".equalsIgnoreCase(status);
     }
 }

@@ -1,64 +1,77 @@
 package src.com.example.interpreter;
 
+import java.time.LocalDate;
+import java.util.Arrays;
+
 import src.com.example.interpreter.conditions.ProjectApprovedCondition;
 import src.com.example.interpreter.conditions.TaskOverdueCondition;
 
-/**
- * Demo: manually build an AST and run it.
- */
 public class InterpreterDemo {
     public static void main(String[] args) {
-        // Prepare project and context
-        Project project = new Project("PROJECT-123");
-        Context context = new Context(project);
+        // ----- Build Context -----
+        Context ctx = new Context();
 
-        // Build workflow:
-        // CREATE_PROJECT THEN
-        // IF PROJECT_APPROVED THEN ( ASSIGN_TASK(Design) THEN NOTIFY(Manager) ) ELSE ( REVIEW_PROJECT THEN NOTIFY(Executive) )
-        // IF TASK_OVERDUE THEN ( FLAG_DELAY THEN NOTIFY(Manager) )
-        // LOG_PERFORMANCE
+        // Project
+        Project project = new Project();
+        project.id = "P-1001";
+        project.type = "Design";
+        project.state = "ACTIVE";
+        project.blockers = 2;          // demo value
+        project.lateMilestones = 0;
+        project.setApproved(true);     // simple approved flag
+        project.approve("Legal");      // named approval also true
 
-        Expression workflow = new SequenceExpression(
-            new CreateProjectExpression(project.getId()),
+        // Tasks
+        Task spec = new Task("SpecDoc");
+        spec.status = "InProgress";
+        spec.priority = "High";
+        spec.due = LocalDate.now().minusDays(3); // overdue
 
-            new IfExpression(
-                new ProjectApprovedCondition(),
+        Task wires = new Task("Wireframes");
+        wires.status = "Pending";
+        wires.due = LocalDate.now().plusDays(5);
+
+        project.tasks.addAll(Arrays.asList(spec, wires));
+
+        // Reflect tasks in Context map (used by actions/conditions)
+        ctx.tasksByName.put(spec.name, spec);
+        ctx.tasksByName.put(wires.name, wires);
+
+        // Attach project to context
+        ctx.project = project;
+
+        // ----- Conditions -----
+        Condition approved   = new ProjectApprovedCondition();
+        Condition anyOverdue = new TaskOverdueCondition();
+
+        // ----- Rules -----
+        // Rule 1: If any task overdue -> notify manager + flag delay
+        Expression rule1 = new IfExpression(
+                anyOverdue,
                 new SequenceExpression(
-                    new AssignTaskExpression("T-001", Department.DESIGN),
-                    new NotifyExpression(Role.MANAGER, "Task assigned to Design")
-                ),
-                new SequenceExpression(
-                    new // quick inline action to signal review; reuse CreateProjectExpression as placeholder
-                        CreateProjectExpression("REVIEW-" + project.getId()),
-                    new NotifyExpression(Role.EXECUTIVE, "Project requires review")
+                        new NotifyExpression(Role.MANAGER, "A task is overdue"),
+                        new FlagDelayExpression()
                 )
-            ),
-
-            new IfExpression(
-                new TaskOverdueCondition(),
-                new SequenceExpression(
-                    new FlagDelayExpression("Task is overdue"),
-                    new NotifyExpression(Role.MANAGER, "A task is overdue")
-                )
-            ),
-
-            new LogPerformanceExpression()
         );
 
-        // First run with project not approved and no tasks -> triggers else branch
-        System.out.println("=== Run 1 (not approved) ===");
-        workflow.interpret(context);
+        // Rule 2: If project approved -> assign Wireframes to DESIGN and notify Design Lead
+        Expression rule2 = new IfExpression(
+                approved,
+                new SequenceExpression(
+                        new AssignTaskExpression("DESIGN", "Wireframes"),
+                        new NotifyExpression(Role.DESIGN_LEAD, "Wireframes task assigned")
+                )
+        );
 
-        // Now approve project and run again
-        project.setApproved(true);
-        System.out.println("\n=== Run 2 (approved) ===");
-        workflow.interpret(context);
+        // ----- Run -----
+        System.out.println("=== EVALUATING RULES ===");
+        rule1.interpret(ctx);
+        rule2.interpret(ctx);
 
-        // Simulate overdue: mark a task overdue and run
-        if (!project.getTasks().isEmpty()) {
-            project.getTasks().get(0).setOverdue(true);
-        }
-        System.out.println("\n=== Run 3 (task overdue) ===");
-        workflow.interpret(context);
+        System.out.println("\n=== AUDIT LOG ===");
+        for (String line : ctx.auditLog) System.out.println(line);
+
+        System.out.println("\nProject state: " + ctx.project.state);
+        System.out.println("Wireframes status: " + ctx.getTask("Wireframes").status);
     }
 }

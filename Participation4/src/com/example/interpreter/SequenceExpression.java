@@ -1,22 +1,15 @@
 package src.com.example.interpreter;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
-/**
- * Executes a list of expressions in order.
- */
 public class SequenceExpression implements Expression {
-    private final List<Expression> expressions;
+    private final List<Expression> steps = new ArrayList<>();
+    public SequenceExpression(Expression... exprs) { steps.addAll(Arrays.asList(exprs)); }
+    public SequenceExpression add(Expression e) { steps.add(e); return this; }
 
-    public SequenceExpression(Expression... expressions) {
-        this.expressions = Arrays.asList(expressions);
+    @Override public void interpret(Context ctx) {
+        for (Expression e : steps) e.interpret(ctx);
     }
 
-    @Override
-    public void interpret(Context context) {
-        for (Expression expr : expressions) {
-            expr.interpret(context);
-        }
-    }
+    @Override public String toString() { return "Sequence(" + steps.size() + " steps)"; }
 }

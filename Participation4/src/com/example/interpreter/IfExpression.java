@@ -1,30 +1,30 @@
 package src.com.example.interpreter;
 
-/**
- * Conditional expression: IF condition THEN trueBranch [ELSE falseBranch].
- */
 public class IfExpression implements Expression {
     private final Condition condition;
-    private final Expression trueBranch;
-    private final Expression falseBranch; // may be null
+    private final Expression thenExpr;
+    private final Expression elseExpr; // nullable
 
-    public IfExpression(Condition condition, Expression trueBranch, Expression falseBranch) {
-        this.condition = condition;
-        this.trueBranch = trueBranch;
-        this.falseBranch = falseBranch;
+    public IfExpression(Condition condition, Expression thenExpr) {
+        this(condition, thenExpr, null);
     }
 
-    public IfExpression(Condition condition, Expression trueBranch) {
-        this(condition, trueBranch, null);
+    public IfExpression(Condition condition, Expression thenExpr, Expression elseExpr) {
+        this.condition = condition;
+        this.thenExpr = thenExpr;
+        this.elseExpr = elseExpr;
     }
 
     @Override
-    public void interpret(Context context) {
-        if (condition.evaluate(context)) {
-            trueBranch.interpret(context);
-        } else if (falseBranch != null) {
-            falseBranch.interpret(context);
+    public void interpret(Context ctx) {
+        boolean ok = condition.evaluate(ctx); // IMPORTANT: evaluate(Context)
+        ctx.record("IF " + condition + " => " + ok);
+        if (ok) {
+            if (thenExpr != null) thenExpr.interpret(ctx);
+        } else if (elseExpr != null) {
+            elseExpr.interpret(ctx);
         }
     }
-}
 
+    @Override public String toString() { return "If(" + condition + ")"; }
+}
